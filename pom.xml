@@ -18,5 +18,7 @@
     </properties>
 
     <modules>
+        <module>energy-rest-api</module>
+        <module>energy-javafx-gui</module>
     </modules>
 </project>
