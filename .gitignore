@@ -1,0 +1,12 @@
+# Maven
+target/
+*.class
+
+# IntelliJ
+.idea/
+*.iml
+*.xml.versionsBackup
+
+# OS
+.DS_Store
+Thumbs.db
