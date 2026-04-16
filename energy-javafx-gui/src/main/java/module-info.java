@@ -1,6 +1,8 @@
 module at.fhtw.energyjavafxgui {
     requires javafx.controls;
     requires javafx.fxml;
+    requires com.fasterxml.jackson.databind;
+    requires java.net.http;
 
 
     opens at.fhtw.energyjavafxgui to javafx.fxml;
