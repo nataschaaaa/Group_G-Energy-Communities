@@ -2,11 +2,14 @@ package at.fhtw.energyjavafxgui;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
-import javafx.scene.control.DatePicker;
-import javafx.scene.control.Label;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -24,19 +27,33 @@ public class MainController {
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
 
+    // Current Status
     @FXML private Label lblCommunityPool;
     @FXML private Label lblGridPortion;
+    @FXML private Label lblStatus;
+
+    // Date pickers
     @FXML private DatePicker dpStart;
     @FXML private DatePicker dpEnd;
-    @FXML private Label lblProduced;
-    @FXML private Label lblUsed;
-    @FXML private Label lblGrid;
-    @FXML private Label lblStatus;
+
+    // TableView
+    @FXML private TableView<UsageDataRow> historicalTable;
+    @FXML private TableColumn<UsageDataRow, String> colHour;
+    @FXML private TableColumn<UsageDataRow, Double> colProduced;
+    @FXML private TableColumn<UsageDataRow, Double> colUsed;
+    @FXML private TableColumn<UsageDataRow, Double> colGrid;
 
     @FXML
     public void initialize() {
+        // Spalten mit Getter-Namen der UsageDataRow verknüpfen
+        colHour.setCellValueFactory(new PropertyValueFactory<>("hour"));
+        colProduced.setCellValueFactory(new PropertyValueFactory<>("communityProduced"));
+        colUsed.setCellValueFactory(new PropertyValueFactory<>("communityUsed"));
+        colGrid.setCellValueFactory(new PropertyValueFactory<>("gridUsed"));
+
         dpStart.setValue(LocalDate.of(2025, 1, 9));
         dpEnd.setValue(LocalDate.of(2025, 1, 10));
     }
@@ -54,22 +71,30 @@ public class MainController {
                 HttpResponse<String> response =
                         httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
+                if (response.statusCode() == 404) {
+                    Platform.runLater(() -> {
+                        lblCommunityPool.setText("Noch keine Daten");
+                        lblGridPortion.setText("Noch keine Daten");
+                        lblStatus.setText("ℹ DB ist leer");
+                    });
+                    return null;
+                }
+
                 JsonNode node = objectMapper.readTree(response.body());
                 double depleted    = node.get("communityDepleted").asDouble();
                 double gridPortion = node.get("gridPortion").asDouble();
 
                 Platform.runLater(() -> {
-                    lblCommunityPool.setText(String.format("Community Pool     %.2f%% used", depleted));
-                    lblGridPortion.setText(String.format("Grid Portion     %.2f%%", gridPortion));
-                    lblStatus.setText("✓ Refreshed successfully");
+                    lblCommunityPool.setText(String.format("%.2f%%", depleted));
+                    lblGridPortion.setText(String.format("%.2f%%", gridPortion));
+                    lblStatus.setText("✓ Aktualisiert");
                 });
                 return null;
             }
         };
 
-        task.setOnFailed(e ->
-                Platform.runLater(() ->
-                        lblStatus.setText("✗ Error: " + task.getException().getMessage())));
+        task.setOnFailed(e -> Platform.runLater(() ->
+                lblStatus.setText("✗ Fehler: " + task.getException().getMessage())));
 
         new Thread(task).start();
     }
@@ -80,7 +105,11 @@ public class MainController {
         LocalDate end   = dpEnd.getValue();
 
         if (start == null || end == null) {
-            lblStatus.setText("Please select both dates.");
+            lblStatus.setText("Bitte Start- und Enddatum wählen.");
+            return;
+        }
+        if (start.isAfter(end)) {
+            lblStatus.setText("Startdatum muss vor dem Enddatum liegen.");
             return;
         }
 
@@ -103,30 +132,28 @@ public class MainController {
                         httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
                 JsonNode array = objectMapper.readTree(response.body());
-                double totalProduced = 0, totalUsed = 0, totalGrid = 0;
+                ObservableList<UsageDataRow> rows = FXCollections.observableArrayList();
 
                 for (JsonNode entry : array) {
-                    totalProduced += entry.get("communityProduced").asDouble();
-                    totalUsed     += entry.get("communityUsed").asDouble();
-                    totalGrid     += entry.get("gridUsed").asDouble();
+                    rows.add(new UsageDataRow(
+                            entry.get("hour").asText(),
+                            entry.get("communityProduced").asDouble(),
+                            entry.get("communityUsed").asDouble(),
+                            entry.get("gridUsed").asDouble()
+                    ));
                 }
 
-                final double fp = totalProduced, fu = totalUsed, fg = totalGrid;
-                final int count = array.size();
-
+                final int count = rows.size();
                 Platform.runLater(() -> {
-                    lblProduced.setText(String.format("Community produced     %.3f kWh", fp));
-                    lblUsed.setText(String.format("Community used           %.3f kWh", fu));
-                    lblGrid.setText(String.format("Grid used                    %.3f kWh", fg));
-                    lblStatus.setText("✓ Loaded " + count + " hour(s)");
+                    historicalTable.setItems(rows);
+                    lblStatus.setText("✓ " + count + " Einträge geladen");
                 });
                 return null;
             }
         };
 
-        task.setOnFailed(e ->
-                Platform.runLater(() ->
-                        lblStatus.setText("✗ Error: " + task.getException().getMessage())));
+        task.setOnFailed(e -> Platform.runLater(() ->
+                lblStatus.setText("✗ Fehler: " + task.getException().getMessage())));
 
         new Thread(task).start();
     }
