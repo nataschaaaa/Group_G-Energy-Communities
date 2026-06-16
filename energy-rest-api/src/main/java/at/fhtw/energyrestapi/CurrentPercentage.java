@@ -1,21 +1,35 @@
 package at.fhtw.energyrestapi;
 
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "current_percentage")
 public class CurrentPercentage {
-    private String hour;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "hour")
+    private LocalDateTime hour;
+
+    @Column(name = "community_depleted")
     private double communityDepleted;
+
+    @Column(name = "grid_portion")
     private double gridPortion;
 
-    public CurrentPercentage(String hour, double communityDepleted, double gridPortion) {
-        this.hour = hour;
-        this.communityDepleted = communityDepleted;
-        this.gridPortion = gridPortion;
-    }
+    // Pflicht für JPA: leerer Konstruktor
+    public CurrentPercentage() {}
 
-    public String getHour()              { return hour; }
+    public Long getId() { return id; }
+    public LocalDateTime getHour() { return hour; }
     public double getCommunityDepleted() { return communityDepleted; }
-    public double getGridPortion()       { return gridPortion; }
+    public double getGridPortion() { return gridPortion; }
 
-    public void setHour(String hour)                           { this.hour = hour; }
-    public void setCommunityDepleted(double communityDepleted) { this.communityDepleted = communityDepleted; }
-    public void setGridPortion(double gridPortion)             { this.gridPortion = gridPortion; }
+    public void setId(Long id) { this.id = id; }
+    public void setHour(LocalDateTime hour) { this.hour = hour; }
+    public void setCommunityDepleted(double v) { this.communityDepleted = v; }
+    public void setGridPortion(double v) { this.gridPortion = v; }
 }
