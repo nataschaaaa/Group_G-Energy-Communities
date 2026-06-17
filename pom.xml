@@ -20,5 +20,6 @@
     <modules>
         <module>energy-rest-api</module>
         <module>energy-javafx-gui</module>
+        <module>usage-service</module>
     </modules>
 </project>
